@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+elasticsearch:
+  host: localhost
+  port: 9200
+
+embedding-service:
+  base-url: http://localhost:8000
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/vector_shop
+    username: vss_user
+    password: vss_password

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Java / Gradle
+.gradle/
+build/
+*.class
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# 환경 변수
+.env
+.env.local
+
+# OS
+.DS_Store
