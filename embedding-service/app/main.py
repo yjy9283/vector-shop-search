@@ -12,7 +12,9 @@ from FlagEmbedding import BGEM3FlagModel
 app = FastAPI(title="BGE-M3 Embedding Service")
 
 # 최초 로딩 시간이 걸리므로 서버 기동 시 한 번만 로드
-model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True)
+# devices="cpu" 명시: FlagEmbedding이 MPS 가용 여부만 보고 자동 선택하는데,
+# 이 환경은 torch.backends.mps.is_available()=True이면서도 torch.mps.device_count()가 없어 충돌함 (torch 2.2.2)
+model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True, devices="cpu")
 
 
 class EmbedRequest(BaseModel):

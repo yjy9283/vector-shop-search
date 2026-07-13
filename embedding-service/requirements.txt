@@ -2,6 +2,7 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 FlagEmbedding==1.3.2
 torch>=2.0.0
+numpy<2  # torch 2.2.2가 numpy1 ABI로 빌드되어 numpy2와 함께 쓰면 encode() 시 "Numpy is not available" 에러 발생
 psycopg2-binary==2.9.9
 elasticsearch==8.15.0
 python-dotenv==1.0.1
