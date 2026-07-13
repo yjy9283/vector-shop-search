@@ -61,7 +61,7 @@ def build_text(row):
 
 
 def main():
-    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True)
+    model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True, devices="cpu")
     es = Elasticsearch(ES_HOST)
 
     if not es.indices.exists(index=ES_INDEX):

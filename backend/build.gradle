@@ -21,6 +21,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc' // 최저가 비교용 Postgres 조회
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'co.elastic.clients:elasticsearch-java:8.15.0'
+    implementation 'org.elasticsearch.client:elasticsearch-rest-client:8.15.0' // ElasticsearchClient의 저수준 전송 계층
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
