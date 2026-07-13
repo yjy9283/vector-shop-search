@@ -63,6 +63,7 @@
 | 유사도 score 시각화 (막대바) | 필수 | 완료됨 - 숫자보다 막대가 직관적 |
 | 상태 처리: idle / loading / done(빈 결과 포함) / error | 필수 | 완료됨 |
 | 반응형 (모바일) | 선택 | 발표용이면 굳이 안 해도 됨 |
+| 쇼핑몰별 최저가 비교 (펼침) | **추가** | 카드 하단 `<details>`로 펼치면 `/api/products/{id}/prices` 호출, 최저가 배지 표시 |
 
 > ⚠️ **놓치기 쉬운 지점**: BM25 단독 API가 계획에 없었는데, 평가 방법론(6장)에서 "BM25 단독 vs 벡터 단독 vs 하이브리드" 3종 비교를 하기로 해놓고 API는 2개만 있었음. `SearchController`에 `/api/search/bm25` 추가 필요 — 아래 체크리스트에 반영함.
 
@@ -102,6 +103,18 @@ BM25 단독 — nori 분석기 적용된 `name`, `description` 필드 대상 `ma
 ### `GET /api/health`
 프론트 기동 체크용. ES/임베딩서비스/DB 연결 상태 반환.
 
+### `GET /api/products/{productId}/prices` *(추가 — 최저가 비교)*
+다나와 상품 상세페이지에서 크롤링한 쇼핑몰별 가격을 오름차순으로 반환.
+
+**응답 예시**:
+```json
+[
+  { "mallName": "현대Hmall", "price": 2649000, "isLowest": true, "freeShipping": true },
+  { "mallName": "쿠팡", "price": 2699000, "isLowest": false, "freeShipping": true }
+]
+```
+데이터 출처: `crawler/crawl_mall_prices.py` → `product_mall_prices` 테이블 → `MallPriceService`(JdbcTemplate 조회, ES 안 거침)
+
 ---
 
 ## 4. 데이터 모델 & Elasticsearch 설계
@@ -120,6 +133,21 @@ CREATE TABLE products (
     embedded BOOLEAN DEFAULT FALSE
 );
 ```
+
+### PostgreSQL `product_mall_prices` 테이블 *(추가 — 최저가 비교)*
+```sql
+CREATE TABLE product_mall_prices (
+    id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    mall_name VARCHAR(100) NOT NULL,
+    price INTEGER NOT NULL,
+    is_lowest BOOLEAN DEFAULT FALSE,
+    free_shipping BOOLEAN DEFAULT FALSE,
+    crawled_at TIMESTAMP DEFAULT NOW()
+);
+```
+`crawler/crawl_mall_prices.py`가 상품 상세페이지의 정적 HTML(`div.box__mall-price`)에서 채움.
+⚠️ 이 데이터는 `/info/ajax/` 요청 없이 **정적으로 내려오는 부분만** 사용 — 해당 경로는 robots.txt에서 명시적으로 금지됨.
 
 ### Elasticsearch `products` 인덱스
 - `embedding`: `dense_vector`, dims=1024, similarity=cosine (BGE-M3 dense 출력 차원)
@@ -172,6 +200,8 @@ CREATE TABLE products (
   - `source_url` UNIQUE 제약 + `ON CONFLICT DO NOTHING`으로 중복 자동 스킵
   - 파싱 로직은 실제 응답 HTML로 검증 완료 (검색 1건당 40개 내외 파싱됨 → 25개 키워드면 약 800~1000건 확보 예상)
 - [ ] **2단계**: `python crawler/crawl_products.py` 직접 실행 → Postgres에 800~1000건 적재 확인 (`psql`로 `SELECT COUNT(*) FROM products;`)
+- [ ] **2-1단계**: `python crawler/crawl_mall_prices.py --limit 50` 로 소량 먼저 테스트 → 이상 없으면 `--limit` 없이 전체 실행 (건당 1.5초 텀 있어서 시간 걸림)
+  - ⚠️ 이미 `docker compose up`을 한 번 실행했다면 `infra/migration_002_mall_prices.sql`을 수동 적용해야 `product_mall_prices` 테이블이 생김 (`docs/PLAN.md` 4장 참고)
 - [ ] **3단계**: `embedding-service` 의존성 설치 (`pip install -r requirements.txt --break-system-packages`) → `uvicorn app.main:app --reload --port 8000`
 - [ ] **4단계**: `python scripts/index_to_es.py` 실행 → ES에 벡터 색인 완료 확인 (Kibana `http://localhost:5601`에서 `GET products/_count`)
 - [ ] **5단계**: Spring Boot `SearchService` 구현

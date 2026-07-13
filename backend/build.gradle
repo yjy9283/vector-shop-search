@@ -18,6 +18,8 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-webflux' // 임베딩 서비스 호출용 WebClient
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc' // 최저가 비교용 Postgres 조회
+    runtimeOnly 'org.postgresql:postgresql'
     implementation 'co.elastic.clients:elasticsearch-java:8.15.0'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     compileOnly 'org.projectlombok:lombok'
