@@ -25,4 +25,14 @@ public class SearchService {
         // TODO: BM25(match) + knn 결합 쿼리
         throw new UnsupportedOperationException("구현 예정");
     }
+
+    /**
+     * BM25 단독 검색 - name(korean_analyzer), description 필드 대상 match 쿼리.
+     * 평가 3종 비교(BM25 / 벡터 / 하이브리드)의 baseline이므로 반드시 구현할 것.
+     * (docs/PLAN.md 6장 평가 방법론 참고)
+     */
+    public List<SearchResultDto> bm25Search(String queryText, int topK) {
+        // TODO: ES multi_match 쿼리 (fields: name^2, description)
+        throw new UnsupportedOperationException("구현 예정");
+    }
 }

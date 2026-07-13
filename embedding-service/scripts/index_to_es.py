@@ -18,13 +18,30 @@ ES_INDEX = "products"
 BATCH_SIZE = 32
 
 INDEX_MAPPING = {
+    "settings": {
+        "analysis": {
+            "analyzer": {
+                # 한국어 형태소 분석기 - BM25 비교 실험의 정확도를 위해 필수
+                # (infra/elasticsearch/Dockerfile 에서 analysis-nori 플러그인 설치 필요)
+                "korean_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "nori_tokenizer",
+                    "filter": ["nori_readingform", "lowercase"],
+                }
+            }
+        }
+    },
     "mappings": {
         "properties": {
             "product_id": {"type": "keyword"},
-            "name": {"type": "text", "analyzer": "standard"},
+            "name": {
+                "type": "text",
+                "analyzer": "korean_analyzer",
+                "fields": {"raw": {"type": "keyword"}},
+            },
             "category": {"type": "keyword"},
             "price": {"type": "integer"},
-            "description": {"type": "text"},
+            "description": {"type": "text", "analyzer": "korean_analyzer"},
             "image_url": {"type": "keyword", "index": False},
             "embedding": {
                 "type": "dense_vector",
@@ -33,7 +50,7 @@ INDEX_MAPPING = {
                 "similarity": "cosine",
             },
         }
-    }
+    },
 }
 
 

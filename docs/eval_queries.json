@@ -1,0 +1,15 @@
+[
+  {
+    "_comment": "아래는 형식 예시입니다. 실제 크롤링한 상품 ID로 채워서 20~30개까지 늘리세요.",
+    "query": "나이키 에어맥스 270",
+    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
+  },
+  {
+    "query": "나이키 운동화",
+    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
+  },
+  {
+    "query": "나이키 런닝화",
+    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
+  }
+]

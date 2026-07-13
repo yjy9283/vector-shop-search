@@ -1,5 +1,7 @@
 # 검색 성능 평가
 
+> 자동 계산: `docs/eval_queries.json`을 채운 뒤 `python docs/eval_runner.py` 실행하면 아래 표를 자동으로 채울 수 있음.
+
 ## 평가셋 구성
 
 | 유형 | 쿼리 예시 | 정답 상품 | 비고 |

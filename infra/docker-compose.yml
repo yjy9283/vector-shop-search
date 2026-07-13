@@ -16,7 +16,10 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    build:
+      context: ./elasticsearch
+      dockerfile: Dockerfile
+    image: vss-elasticsearch-nori:8.15.0
     container_name: vss-elasticsearch
     restart: unless-stopped
     environment:
