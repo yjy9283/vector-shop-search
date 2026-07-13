@@ -11,6 +11,8 @@
 사용법: python crawl_mall_prices.py [--limit N]
 """
 
+from __future__ import annotations
+
 import os
 import re
 import time
