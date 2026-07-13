@@ -34,6 +34,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 # search.danawa.com robots.txt의 Crawl-delay: 10 을 반드시 지킨다.
 CRAWL_DELAY_SECONDS = 10
 
+# 키워드당 순회할 페이지 수 (데이터 규모 확보용, 페이지당 요청도 Crawl-delay 적용됨)
+# 다나와 검색은 page=100까지도 서로 겹치지 않는 결과를 반환함(사전 확인 완료) -> 깊게 순회해도 안전
+PAGES_PER_KEYWORD = 10
+
 # 다양한 카테고리를 폭넓게 모으기 위한 키워드 목록.
 # 필요에 따라 자유롭게 추가/수정해도 됨 (평가셋 다양성을 위해 카테고리를 고르게 섞는 게 좋음).
 KEYWORDDS_DEFAULT = [
@@ -42,12 +46,17 @@ KEYWORDDS_DEFAULT = [
     "TV", "모니터", "키보드", "마우스", "게이밍의자", "프린터",
     "커피머신", "전기밥솥", "에어프라이어", "믹서기",
     "캠핑용품", "선풍기", "제습기",
+    "데스크탑", "그래픽카드", "SSD", "외장하드", "스피커",
+    "프로젝터", "전자레인지", "식기세척기", "정수기", "안마의자",
+    "유모차", "자전거", "텐트", "등산화", "러닝화",
+    "백팩", "손목시계", "선글라스", "향수", "전동칫솔",
+    "다리미", "가습기", "인덕션", "오븐", "드라이기",
 ]
 
 
-def fetch_keyword(keyword: str) -> list[dict]:
+def fetch_keyword(keyword: str, page: int = 1) -> list[dict]:
     """다나와 통합검색 결과 페이지 1개에서 상품 목록을 파싱한다."""
-    resp = requests.get(SEARCH_URL, params={"query": keyword}, headers=HEADERS, timeout=15)
+    resp = requests.get(SEARCH_URL, params={"query": keyword, "page": page}, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -129,22 +138,29 @@ def save_to_postgres(products: list[dict]) -> int:
     return inserted
 
 
-def run(keywords: list[str] = None):
+def run(keywords: list[str] = None, pages_per_keyword: int = PAGES_PER_KEYWORD):
     keywords = keywords or KEYWORDDS_DEFAULT
     total_inserted = 0
+    requests_done = 0
+    total_requests = len(keywords) * pages_per_keyword
 
     for i, keyword in enumerate(keywords):
-        log.info("[%d/%d] '%s' 검색 중...", i + 1, len(keywords), keyword)
-        try:
-            products = fetch_keyword(keyword)
-            inserted = save_to_postgres(products)
-            total_inserted += inserted
-            log.info("  -> %d건 파싱, %d건 신규 저장 (누적 %d건)", len(products), inserted, total_inserted)
-        except requests.RequestException as e:
-            log.error("  -> 요청 실패: %s (스킵하고 계속)", e)
+        for page in range(1, pages_per_keyword + 1):
+            requests_done += 1
+            log.info(
+                "[%d/%d] '%s' %d페이지 검색 중... (요청 %d/%d)",
+                i + 1, len(keywords), keyword, page, requests_done, total_requests,
+            )
+            try:
+                products = fetch_keyword(keyword, page)
+                inserted = save_to_postgres(products)
+                total_inserted += inserted
+                log.info("  -> %d건 파싱, %d건 신규 저장 (누적 %d건)", len(products), inserted, total_inserted)
+            except requests.RequestException as e:
+                log.error("  -> 요청 실패: %s (스킵하고 계속)", e)
 
-        if i < len(keywords) - 1:
-            time.sleep(CRAWL_DELAY_SECONDS)  # robots.txt Crawl-delay 준수
+            if requests_done < total_requests:
+                time.sleep(CRAWL_DELAY_SECONDS)  # robots.txt Crawl-delay 준수
 
     log.info("크롤링 완료. 총 신규 저장: %d건", total_inserted)
 

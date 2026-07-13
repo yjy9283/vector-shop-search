@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS products (
     price INTEGER,
     description TEXT,
     image_url TEXT,
-    source_url TEXT,
+    source_url TEXT UNIQUE,
     crawled_at TIMESTAMP DEFAULT NOW(),
     -- 임베딩 완료 여부 (embedding-service가 처리 후 true로 갱신)
     embedded BOOLEAN DEFAULT FALSE
