@@ -166,8 +166,12 @@ CREATE TABLE products (
 ## 7. 실행 체크리스트 (pull 후 순서대로)
 
 - [ ] **0단계**: `docker compose -f infra/docker-compose.yml up -d --build` (nori 포함 커스텀 이미지라 `--build` 필수)
-- [ ] **1단계**: 크롤링 대상 쇼핑몰 확정 (robots.txt 확인) → `crawler/crawl_products.py`의 `fetch_product_list()` 구현
-- [ ] **2단계**: 크롤러 실행 → Postgres에 500~1000건 적재 확인
+- [x] **1단계**: 크롤링 대상 확정 및 구현 완료 — `crawler/crawl_products.py`
+  - 다나와 통합검색(`search.danawa.com/dsearch.php?query=`) 기반, 25개 키워드(노트북~제습기)로 다양한 카테고리 수집
+  - robots.txt의 `Crawl-delay: 10` 반영해서 키워드마다 10초 대기 (전체 실행 약 4~5분 소요)
+  - `source_url` UNIQUE 제약 + `ON CONFLICT DO NOTHING`으로 중복 자동 스킵
+  - 파싱 로직은 실제 응답 HTML로 검증 완료 (검색 1건당 40개 내외 파싱됨 → 25개 키워드면 약 800~1000건 확보 예상)
+- [ ] **2단계**: `python crawler/crawl_products.py` 직접 실행 → Postgres에 800~1000건 적재 확인 (`psql`로 `SELECT COUNT(*) FROM products;`)
 - [ ] **3단계**: `embedding-service` 의존성 설치 (`pip install -r requirements.txt --break-system-packages`) → `uvicorn app.main:app --reload --port 8000`
 - [ ] **4단계**: `python scripts/index_to_es.py` 실행 → ES에 벡터 색인 완료 확인 (Kibana `http://localhost:5601`에서 `GET products/_count`)
 - [ ] **5단계**: Spring Boot `SearchService` 구현
@@ -198,6 +202,7 @@ CREATE TABLE products (
 
 ## 9. 리스크 / 주의사항
 
+- **크롤러 Crawl-delay 준수**: `search.danawa.com`은 robots.txt에 `Crawl-delay: 10`을 명시함 → `crawl_products.py`에 이미 반영되어 있으니 임의로 `time.sleep` 값을 줄이지 말 것 (매너 크롤링 원칙)
 - **nori 플러그인 누락**: `docker compose up -d --build`로 반드시 재빌드 (4장 참고)
 - **임베딩 모델 최초 로딩 시간**: BGE-M3는 처음 로드할 때 수 GB 다운로드 + 로딩 시간 소요 → embedding-service 첫 기동은 몇 분 걸릴 수 있음, 타임아웃 아님
 - **GPU 없는 환경**: `use_fp16=True`가 CPU에서는 의미 없을 수 있음 → CPU만 있다면 배치 색인 시간이 길어질 수 있으니 처음엔 50~100건만으로 파이프라인 검증 후 전체 실행 권장
