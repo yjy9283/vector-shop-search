@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClientException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +24,12 @@ import java.util.Map;
 public class SearchService {
 
     private static final String INDEX = "products";
+    // Reciprocal Rank Fusion 상수 - 원 논문(Cormack et al., 2009) 및 업계 관례상 k=60이 표준값.
+    // 벡터(코사인 0~1)와 BM25(수십 단위) 점수를 그냥 더하면 스케일이 안 맞아서 BM25가 사실상
+    // 전부 지배해버리는 문제가 있었음 - 순위(rank)만 보는 RRF는 두 검색의 점수 스케일과 무관하게
+    // 공정하게 섞인다.
+    private static final double RRF_K = 60.0;
+    private static final int RRF_POOL_SIZE = 50;
 
     private final ElasticsearchClient esClient;
     private final WebClient embeddingWebClient;
@@ -61,6 +68,14 @@ public class SearchService {
         }
     }
 
+    /**
+     * 벡터(kNN)와 BM25를 Reciprocal Rank Fusion(RRF)으로 결합한다.
+     * 예전엔 ES 하나의 요청에 knn절+query절을 같이 넣어서 점수를 단순 합산했는데,
+     * 코사인(0~1)과 BM25(수십)의 스케일 차이 때문에 BM25가 매치되기만 하면 사실상
+     * BM25 순위 그대로 나오는 문제가 있었다(직접 확인: "노트북" 쿼리에서 하이브리드
+     * 점수가 BM25 점수와 소수점까지 동일했음). RRF는 원점수가 아니라 "몇 등이었는가"만
+     * 보므로 스케일 문제 자체가 없다.
+     */
     public List<SearchResultDto> hybridSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
         List<Query> filters = buildFilters(category, minPrice, maxPrice);
         if (queryText == null || queryText.isBlank()) {
@@ -69,23 +84,27 @@ public class SearchService {
         }
         List<Float> vector = embedQuery(queryText);
         try {
-            SearchResponse<Map> response = esClient.search(s -> s
+            SearchResponse<Map> vectorResponse = esClient.search(s -> s
                             .index(INDEX)
                             .knn(k -> k
                                     .field("embedding")
                                     .queryVector(vector)
-                                    .k(topK)
-                                    .numCandidates(Math.max(topK * 10, 50))
+                                    .k(RRF_POOL_SIZE)
+                                    .numCandidates(Math.max(RRF_POOL_SIZE * 10, 50))
                                     .filter(filters))
+                            .size(RRF_POOL_SIZE),
+                    Map.class);
+            SearchResponse<Map> bm25Response = esClient.search(s -> s
+                            .index(INDEX)
                             .query(q -> q
                                     .bool(b -> b
                                             .must(m -> m.multiMatch(mm -> mm
                                                     .query(queryText)
                                                     .fields("name^2", "description")))
                                             .filter(filters)))
-                            .size(topK),
+                            .size(RRF_POOL_SIZE),
                     Map.class);
-            return toResults(response);
+            return fuseRrf(vectorResponse, bm25Response, topK);
         } catch (IOException e) {
             throw new SearchUnavailableException("검색 서비스에 일시적인 문제가 있어요.", e);
         }
@@ -194,24 +213,75 @@ public class SearchService {
 
     @SuppressWarnings("unchecked")
     private List<SearchResultDto> toResults(SearchResponse<Map> response) {
-        List<Map<String, Object>> sources = new ArrayList<>();
-        List<Double> scores = new ArrayList<>();
+        List<String> productIds = new ArrayList<>();
+        Map<String, Map<String, Object>> sourceById = new LinkedHashMap<>();
+        Map<String, Double> scoreById = new HashMap<>();
         for (Hit<Map> hit : response.hits().hits()) {
             Map<String, Object> source = hit.source();
             if (source == null) {
                 continue;
             }
-            sources.add(source);
-            scores.add(hit.score() == null ? 0.0 : hit.score());
+            String productId = String.valueOf(source.get("product_id"));
+            productIds.add(productId);
+            sourceById.put(productId, source);
+            scoreById.put(productId, hit.score() == null ? 0.0 : hit.score());
+        }
+        return buildResults(productIds, sourceById, scoreById);
+    }
+
+    /**
+     * 벡터 결과와 BM25 결과 두 순위 목록을 RRF 점수로 합쳐서 상위 topK를 뽑는다.
+     * RRF(d) = sum(1 / (RRF_K + rank_in_list)) - 문서가 한쪽 목록에만 있으면 그쪽 항만 더해진다.
+     */
+    @SuppressWarnings("unchecked")
+    private List<SearchResultDto> fuseRrf(SearchResponse<Map> vectorResponse, SearchResponse<Map> bm25Response, int topK) {
+        Map<String, Map<String, Object>> sourceById = new LinkedHashMap<>();
+        Map<String, Double> rrfById = new HashMap<>();
+
+        List<Hit<Map>> vectorHits = vectorResponse.hits().hits();
+        for (int i = 0; i < vectorHits.size(); i++) {
+            Map<String, Object> source = vectorHits.get(i).source();
+            if (source == null) {
+                continue;
+            }
+            String productId = String.valueOf(source.get("product_id"));
+            sourceById.put(productId, source);
+            rrfById.merge(productId, 1.0 / (RRF_K + i + 1), Double::sum);
+        }
+        List<Hit<Map>> bm25Hits = bm25Response.hits().hits();
+        for (int i = 0; i < bm25Hits.size(); i++) {
+            Map<String, Object> source = bm25Hits.get(i).source();
+            if (source == null) {
+                continue;
+            }
+            String productId = String.valueOf(source.get("product_id"));
+            sourceById.putIfAbsent(productId, source);
+            rrfById.merge(productId, 1.0 / (RRF_K + i + 1), Double::sum);
         }
 
-        List<String> productIds = sources.stream().map(s -> String.valueOf(s.get("product_id"))).toList();
+        List<String> rankedIds = rrfById.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .limit(topK)
+                .toList();
+
+        return buildResults(rankedIds, sourceById, rrfById);
+    }
+
+    /**
+     * ES 응답(들)에서 뽑은 productId/원본 필드/점수를 Postgres 최신 메타(source_url, image_url)와
+     * 합쳐 최종 응답 DTO 목록을 만든다.
+     */
+    private List<SearchResultDto> buildResults(
+            List<String> productIds,
+            Map<String, Map<String, Object>> sourceById,
+            Map<String, Double> scoreById
+    ) {
         Map<String, ProductMeta> metaById = fetchProductMeta(productIds);
 
         List<SearchResultDto> results = new ArrayList<>();
-        for (int i = 0; i < sources.size(); i++) {
-            Map<String, Object> source = sources.get(i);
-            String productId = productIds.get(i);
+        for (String productId : productIds) {
+            Map<String, Object> source = sourceById.get(productId);
             ProductMeta meta = metaById.get(productId);
             // image_url은 재크롤링으로 계속 갱신될 수 있어서(embedding-service/scripts/index_to_es.py의
             // build_text()가 image_url을 안 쓰므로 재색인 없이 값이 바뀜) ES가 아니라 Postgres의
@@ -223,7 +293,7 @@ public class SearchService {
                     (String) source.get("category"),
                     source.get("price") == null ? null : ((Number) source.get("price")).intValue(),
                     imageUrl,
-                    scores.get(i),
+                    scoreById.getOrDefault(productId, 0.0),
                     meta == null ? null : meta.sourceUrl()
             ));
         }
