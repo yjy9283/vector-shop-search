@@ -90,6 +90,8 @@ vector-shop-search/
 24개 쿼리(정확매칭/동의어/오타 8개씩), `docs/eval_runner.py`로 자동 측정. 상세 방법론과 케이스 스터디는
 `docs/evaluation.md` 참고.
 
+![평가 결과 차트](docs/screenshots/eval-chart.png)
+
 ### 전체 Recall (기존 지표 — 오해하기 쉬움)
 
 | 검색 방식 | Recall@5 | Recall@10 |
