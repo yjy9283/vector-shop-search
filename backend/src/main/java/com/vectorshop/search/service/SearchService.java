@@ -200,42 +200,54 @@ public class SearchService {
         }
 
         List<String> productIds = sources.stream().map(s -> String.valueOf(s.get("product_id"))).toList();
-        Map<String, String> sourceUrls = fetchSourceUrls(productIds);
+        Map<String, ProductMeta> metaById = fetchProductMeta(productIds);
 
         List<SearchResultDto> results = new ArrayList<>();
         for (int i = 0; i < sources.size(); i++) {
             Map<String, Object> source = sources.get(i);
             String productId = productIds.get(i);
+            ProductMeta meta = metaById.get(productId);
+            // image_url은 재크롤링으로 계속 갱신될 수 있어서(embedding-service/scripts/index_to_es.py의
+            // build_text()가 image_url을 안 쓰므로 재색인 없이 값이 바뀜) ES가 아니라 Postgres의
+            // 최신 값을 우선한다. ES 색인 당시 값은 최후 fallback으로만 쓴다.
+            String imageUrl = meta != null && meta.imageUrl() != null ? meta.imageUrl() : (String) source.get("image_url");
             results.add(new SearchResultDto(
                     productId,
                     (String) source.get("name"),
                     (String) source.get("category"),
                     source.get("price") == null ? null : ((Number) source.get("price")).intValue(),
-                    (String) source.get("image_url"),
+                    imageUrl,
                     scores.get(i),
-                    sourceUrls.get(productId)
+                    meta == null ? null : meta.sourceUrl()
             ));
         }
         return results;
     }
 
     /**
-     * ES 인덱스엔 source_url이 없어서(색인 당시 안 넣었음) Postgres에서 배치 조회한다.
-     * 카드 클릭 시 다나와 원본 상품 페이지로 이동할 수 있게 하기 위함.
+     * ES 인덱스엔 source_url이 없고 image_url은 색인 시점 값이라 오래될 수 있어서,
+     * 매 요청마다 Postgres에서 최신 값을 배치 조회한다. 카드 클릭 시 다나와 원본 페이지로
+     * 이동하고, 재크롤링한 실제 썸네일이 재색인 없이 바로 반영되게 하기 위함.
      */
-    private Map<String, String> fetchSourceUrls(List<String> productIds) {
+    private Map<String, ProductMeta> fetchProductMeta(List<String> productIds) {
         if (productIds.isEmpty()) {
             return Map.of();
         }
         Long[] ids = productIds.stream().map(Long::valueOf).toArray(Long[]::new);
-        String sql = "SELECT id, source_url FROM products WHERE id = ANY(?)";
-        Map<String, String> urlsById = new HashMap<>();
+        String sql = "SELECT id, source_url, image_url FROM products WHERE id = ANY(?)";
+        Map<String, ProductMeta> metaById = new HashMap<>();
         jdbcTemplate.query(
                 sql,
                 ps -> ps.setArray(1, ps.getConnection().createArrayOf("bigint", ids)),
-                (RowCallbackHandler) rs -> urlsById.put(String.valueOf(rs.getLong("id")), rs.getString("source_url"))
+                (RowCallbackHandler) rs -> metaById.put(
+                        String.valueOf(rs.getLong("id")),
+                        new ProductMeta(rs.getString("source_url"), rs.getString("image_url"))
+                )
         );
-        return urlsById;
+        return metaById;
+    }
+
+    private record ProductMeta(String sourceUrl, String imageUrl) {
     }
 
     private record EmbedRequest(List<String> texts) {
