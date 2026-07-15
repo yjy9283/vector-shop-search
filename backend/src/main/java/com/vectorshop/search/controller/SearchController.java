@@ -19,34 +19,43 @@ public class SearchController {
 
     /**
      * 벡터(kNN) 검색
-     * GET /api/search?q=나이키+운동화&topK=10
+     * GET /api/search?q=나이키+운동화&topK=10&category=...&minPrice=...&maxPrice=...
      */
     @GetMapping("/api/search")
     public List<SearchResultDto> search(
             @RequestParam String q,
-            @RequestParam(defaultValue = "10") int topK) {
-        return searchService.vectorSearch(q, topK);
+            @RequestParam(defaultValue = "10") int topK,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice) {
+        return searchService.vectorSearch(q, topK, category, minPrice, maxPrice);
     }
 
     /**
      * 하이브리드 검색(BM25 + kNN 가중합) - 평가 비교용
-     * GET /api/search/hybrid?q=나이키+운동화&topK=10
+     * GET /api/search/hybrid?q=나이키+운동화&topK=10&category=...&minPrice=...&maxPrice=...
      */
     @GetMapping("/api/search/hybrid")
     public List<SearchResultDto> hybridSearch(
             @RequestParam String q,
-            @RequestParam(defaultValue = "10") int topK) {
-        return searchService.hybridSearch(q, topK);
+            @RequestParam(defaultValue = "10") int topK,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice) {
+        return searchService.hybridSearch(q, topK, category, minPrice, maxPrice);
     }
 
     /**
      * BM25 단독 검색 - 3종 비교 평가(BM25 vs 벡터 vs 하이브리드)의 기준선(baseline) 역할
-     * GET /api/search/bm25?q=나이키+운동화&topK=10
+     * GET /api/search/bm25?q=나이키+운동화&topK=10&category=...&minPrice=...&maxPrice=...
      */
     @GetMapping("/api/search/bm25")
     public List<SearchResultDto> bm25Search(
             @RequestParam String q,
-            @RequestParam(defaultValue = "10") int topK) {
-        return searchService.bm25Search(q, topK);
+            @RequestParam(defaultValue = "10") int topK,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice) {
+        return searchService.bm25Search(q, topK, category, minPrice, maxPrice);
     }
 }

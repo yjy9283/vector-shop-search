@@ -1,6 +1,7 @@
 package com.vectorshop.search.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.vectorshop.search.dto.SearchResultDto;
@@ -30,9 +31,10 @@ public class SearchService {
         this.embeddingWebClient = webClientBuilder.baseUrl(embeddingBaseUrl).build();
     }
 
-    public List<SearchResultDto> vectorSearch(String queryText, int topK) {
+    public List<SearchResultDto> vectorSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
         validateQuery(queryText);
         List<Float> vector = embedQuery(queryText);
+        List<Query> filters = buildFilters(category, minPrice, maxPrice);
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
@@ -40,7 +42,8 @@ public class SearchService {
                                     .field("embedding")
                                     .queryVector(vector)
                                     .k(topK)
-                                    .numCandidates(Math.max(topK * 10, 50)))
+                                    .numCandidates(Math.max(topK * 10, 50))
+                                    .filter(filters))
                             .size(topK),
                     Map.class);
             return toResults(response);
@@ -49,9 +52,10 @@ public class SearchService {
         }
     }
 
-    public List<SearchResultDto> hybridSearch(String queryText, int topK) {
+    public List<SearchResultDto> hybridSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
         validateQuery(queryText);
         List<Float> vector = embedQuery(queryText);
+        List<Query> filters = buildFilters(category, minPrice, maxPrice);
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
@@ -59,11 +63,14 @@ public class SearchService {
                                     .field("embedding")
                                     .queryVector(vector)
                                     .k(topK)
-                                    .numCandidates(Math.max(topK * 10, 50)))
+                                    .numCandidates(Math.max(topK * 10, 50))
+                                    .filter(filters))
                             .query(q -> q
-                                    .multiMatch(m -> m
-                                            .query(queryText)
-                                            .fields("name^2", "description")))
+                                    .bool(b -> b
+                                            .must(m -> m.multiMatch(mm -> mm
+                                                    .query(queryText)
+                                                    .fields("name^2", "description")))
+                                            .filter(filters)))
                             .size(topK),
                     Map.class);
             return toResults(response);
@@ -77,21 +84,49 @@ public class SearchService {
      * 평가 3종 비교(BM25 / 벡터 / 하이브리드)의 baseline이므로 반드시 구현할 것.
      * (docs/PLAN.md 6장 평가 방법론 참고)
      */
-    public List<SearchResultDto> bm25Search(String queryText, int topK) {
+    public List<SearchResultDto> bm25Search(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
         validateQuery(queryText);
+        List<Query> filters = buildFilters(category, minPrice, maxPrice);
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
                             .query(q -> q
-                                    .multiMatch(m -> m
-                                            .query(queryText)
-                                            .fields("name^2", "description")))
+                                    .bool(b -> b
+                                            .must(m -> m.multiMatch(mm -> mm
+                                                    .query(queryText)
+                                                    .fields("name^2", "description")))
+                                            .filter(filters)))
                             .size(topK),
                     Map.class);
             return toResults(response);
         } catch (IOException e) {
             throw new SearchUnavailableException("검색 서비스에 일시적인 문제가 있어요.", e);
         }
+    }
+
+    /**
+     * category(정확 일치)와 price 범위를 ES bool filter절로 변환한다.
+     * filter절은 스코어링에 영향을 주지 않고 후보군만 좁혀서, 벡터/BM25/하이브리드 세 검색 다
+     * 동일한 조건으로 공정하게 비교되도록 한다.
+     */
+    private List<Query> buildFilters(String category, Integer minPrice, Integer maxPrice) {
+        List<Query> filters = new ArrayList<>();
+        if (category != null && !category.isBlank()) {
+            filters.add(Query.of(q -> q.term(t -> t.field("category").value(category))));
+        }
+        if (minPrice != null || maxPrice != null) {
+            filters.add(Query.of(q -> q.range(r -> r.number(n -> {
+                n.field("price");
+                if (minPrice != null) {
+                    n.gte(minPrice.doubleValue());
+                }
+                if (maxPrice != null) {
+                    n.lte(maxPrice.doubleValue());
+                }
+                return n;
+            }))));
+        }
+        return filters;
     }
 
     private void validateQuery(String queryText) {
