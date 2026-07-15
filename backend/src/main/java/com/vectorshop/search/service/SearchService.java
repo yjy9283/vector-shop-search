@@ -120,14 +120,20 @@ public class SearchService {
     }
 
     /**
-     * category(정확 일치)와 price 범위를 ES bool filter절로 변환한다.
-     * filter절은 스코어링에 영향을 주지 않고 후보군만 좁혀서, 벡터/BM25/하이브리드 세 검색 다
-     * 동일한 조건으로 공정하게 비교되도록 한다.
+     * category(대분류 단독이면 prefix, "대분류 > 소분류" 전체면 정확 일치)와 price 범위를
+     * ES bool filter절로 변환한다. filter절은 스코어링에 영향을 주지 않고 후보군만 좁혀서,
+     * 벡터/BM25/하이브리드 세 검색 다 동일한 조건으로 공정하게 비교되도록 한다.
      */
     private List<Query> buildFilters(String category, Integer minPrice, Integer maxPrice) {
         List<Query> filters = new ArrayList<>();
         if (category != null && !category.isBlank()) {
-            filters.add(Query.of(q -> q.term(t -> t.field("category").value(category))));
+            if (category.contains(">")) {
+                filters.add(Query.of(q -> q.term(t -> t.field("category").value(category))));
+            } else {
+                // 대분류만 선택된 경우 - "대분류 > 소분류" 전체를 대상으로 prefix 매칭한다.
+                String prefix = category.trim() + " >";
+                filters.add(Query.of(q -> q.prefix(p -> p.field("category").value(prefix))));
+            }
         }
         if (minPrice != null || maxPrice != null) {
             filters.add(Query.of(q -> q.range(r -> r.number(n -> {

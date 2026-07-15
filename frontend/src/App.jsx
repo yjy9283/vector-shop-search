@@ -207,7 +207,8 @@ export default function App() {
   const [compareErrorMsg, setCompareErrorMsg] = useState('')
 
   const [categories, setCategories] = useState([])
-  const [category, setCategory] = useState('')
+  const [majorCategory, setMajorCategory] = useState('')
+  const [minorCategory, setMinorCategory] = useState('')
   const [minPriceInput, setMinPriceInput] = useState('')
   const [maxPriceInput, setMaxPriceInput] = useState('')
   const [minPrice, setMinPrice] = useState('')
@@ -219,6 +220,16 @@ export default function App() {
       .then(setCategories)
       .catch(() => setCategories([]))
   }, [])
+
+  // 카테고리는 "대분류 > 소분류" 형태라 대분류만 골라도 되고(그 아래 소분류 전체가 대상),
+  // 소분류까지 고르면 정확히 그 카테고리만 대상이 된다.
+  const majorCategories = Array.from(new Set(categories.map((c) => c.split('>')[0].trim())))
+  const minorCategories = majorCategory
+    ? categories
+        .filter((c) => c.startsWith(`${majorCategory} >`))
+        .map((c) => c.split('>')[1].trim())
+    : []
+  const category = minorCategory ? `${majorCategory} > ${minorCategory}` : majorCategory
 
   // 검색어가 없어도 카테고리/가격 필터만 골랐으면 그 조건에 맞는 상품을 바로 둘러볼 수 있다.
   const hasSearchable = Boolean(submittedQuery || category || minPrice || maxPrice)
@@ -318,7 +329,8 @@ export default function App() {
   }
 
   const resetFilters = () => {
-    setCategory('')
+    setMajorCategory('')
+    setMinorCategory('')
     setMinPriceInput('')
     setMaxPriceInput('')
     setMinPrice('')
@@ -405,16 +417,33 @@ export default function App() {
           <span className="filter-eyebrow">필터</span>
           <select
             className="filter-select"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={majorCategory}
+            onChange={(e) => {
+              setMajorCategory(e.target.value)
+              setMinorCategory('')
+            }}
           >
             <option value="">전체 카테고리</option>
-            {categories.map((c) => (
+            {majorCategories.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
           </select>
+          {majorCategory && (
+            <select
+              className="filter-select"
+              value={minorCategory}
+              onChange={(e) => setMinorCategory(e.target.value)}
+            >
+              <option value="">{majorCategory} 전체</option>
+              {minorCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
           <span className="filter-divider" />
           <select className="filter-select" value={priceSelectValue} onChange={applyPricePreset}>
             {PRICE_PRESETS.map((p) => (
