@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import './App.css'
 
 const MODES = [
-  { key: 'vector', label: '벡터', caption: '의미가 비슷한 상품을 찾아요' },
-  { key: 'hybrid', label: '하이브리드', caption: '의미와 검색어를 함께 봐요' },
-  { key: 'bm25', label: '키워드', caption: '검색어와 정확히 겹치는 상품을 찾아요' },
+  { key: 'vector', label: '벡터', caption: '의미가 비슷한 상품을 찾아요', color: 'var(--vector)' },
+  { key: 'hybrid', label: '하이브리드', caption: '의미와 검색어를 함께 봐요', color: 'var(--ink)' },
+  { key: 'bm25', label: '키워드', caption: '검색어와 정확히 겹치는 상품을 찾아요', color: 'var(--keyword)' },
 ]
 
 const ENDPOINTS = {
@@ -83,7 +83,7 @@ function MallPriceList({ productId }) {
   )
 }
 
-function ResultCard({ item, maxScore }) {
+function ResultCard({ item, maxScore, accentColor }) {
   const [imgFailed, setImgFailed] = useState(false)
   // 필터만으로 둘러보는 모드(검색어 없음)는 순위를 매길 유사도 자체가 없어서 maxScore가 0 -
   // 이때는 배지를 아예 숨긴다(0/0 = NaN을 그대로 보여주지 않기 위해).
@@ -117,13 +117,18 @@ function ResultCard({ item, maxScore }) {
               <span>{categoryLeaf || '이미지 없음'}</span>
             </div>
           )}
-          {hasScore && (
-            <div className="match-badge" style={{ '--pct': pct }}>
-              <div className="match-badge-inner">{pct}%</div>
-            </div>
-          )}
         </div>
         <div className="card-body">
+          {hasScore && (
+            <div className="spectrum-row">
+              <div className="spectrum-track">
+                <div className="spectrum-fill" style={{ width: `${pct}%`, background: accentColor }} />
+              </div>
+              <span className="spectrum-value" style={{ color: accentColor }}>
+                {pct}%
+              </span>
+            </div>
+          )}
           <div className="card-category">{item.category}</div>
           <div className="card-name">{item.name}</div>
           <div className="card-price">
@@ -143,8 +148,9 @@ function CompareColumn({ info, items, status, errorMsg }) {
   const maxScore = items.length > 0 ? Math.max(...items.map((r) => r.score)) : 0
   const hasScore = maxScore > 0
   return (
-    <div className="compare-col">
+    <div className="compare-col" style={{ '--col-color': info.color }}>
       <div className="compare-col-head">
+        <span className="compare-col-dot" style={{ background: info.color }} />
         <span className="compare-col-label">{info.label}</span>
         <span className="compare-col-caption">{info.caption}</span>
       </div>
@@ -154,7 +160,7 @@ function CompareColumn({ info, items, status, errorMsg }) {
       {status === 'done' && items.length > 0 && (
         <ol className="compare-list">
           {items.map((item, i) => (
-            <li className="compare-item" key={item.productId}>
+            <li className={`compare-item ${i === 0 ? 'compare-item-top' : ''}`} key={item.productId}>
               <span className="compare-rank">{i + 1}</span>
               {item.sourceUrl ? (
                 <a
@@ -175,7 +181,9 @@ function CompareColumn({ info, items, status, errorMsg }) {
                 </div>
               )}
               {hasScore && (
-                <span className="compare-item-score">{Math.round((item.score / maxScore) * 100)}%</span>
+                <span className="compare-item-score" style={{ color: info.color }}>
+                  {Math.round((item.score / maxScore) * 100)}%
+                </span>
               )}
             </li>
           ))}
@@ -329,10 +337,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div className="ticker">
+        <div className="ticker-inner">19,639 SKU 색인 · 3개 검색엔진 · BGE-M3 dense vector · cosine similarity</div>
+      </div>
       <header className="header">
         <div className="header-inner">
           <div className="logo">
-            VSS<span className="logo-dot">.</span>
+            cosine<span className="logo-dot">.</span>
+            <span className="logo-kicker">검색엔진 비교 실험실</span>
           </div>
           <div className="search-bar">
             <input
@@ -349,93 +361,100 @@ export default function App() {
         </div>
       </header>
 
-      <div className="mode-panel">
-        <div className="mode-panel-head">
-          <div className="mode-eyebrow">검색 엔진</div>
-          <button className="compare-toggle" onClick={() => setCompareMode((v) => !v)}>
-            {compareMode ? '개별 결과 보기' : '3종 비교 보기'}
-          </button>
-        </div>
-        {!compareMode && (
-          <>
-            <div className="mode-switch">
-              <div
-                className="mode-switch-indicator"
-                style={{ transform: `translateX(${activeModeIndex * 100}%)` }}
-              />
-              {MODES.map((m) => (
-                <button
-                  key={m.key}
-                  className={`mode-seg ${mode === m.key ? 'active' : ''}`}
-                  onClick={() => setMode(m.key)}
-                >
-                  {m.label}
-                </button>
-              ))}
+      <div className="console">
+        <div className="console-row">
+          <div className="console-engine">
+            <div className="console-row-head">
+              <div className="mode-eyebrow">검색 엔진</div>
+              <button className="compare-toggle" onClick={() => setCompareMode((v) => !v)}>
+                {compareMode ? '개별 결과 보기' : '3종 비교 보기'}
+              </button>
             </div>
-            <div className="mode-caption">{activeMode.caption}</div>
-          </>
-        )}
-        {compareMode && (
-          <div className="mode-caption">
-            같은 조건으로 세 엔진 결과를 나란히 비교해요 — 유사도 검색이 실제로 얼마나 잘 통하는지 여기서 바로 확인할 수 있어요
+            {!compareMode && (
+              <>
+                <div className="mode-switch">
+                  <div
+                    className="mode-switch-indicator"
+                    style={{ transform: `translateX(${activeModeIndex * 100}%)` }}
+                  />
+                  {MODES.map((m) => (
+                    <button
+                      key={m.key}
+                      className={`mode-seg ${mode === m.key ? 'active' : ''}`}
+                      onClick={() => setMode(m.key)}
+                    >
+                      <span className="mode-seg-dot" style={{ background: m.color }} />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mode-caption">{activeMode.caption}</div>
+              </>
+            )}
+            {compareMode && (
+              <div className="mode-caption">
+                같은 조건으로 세 엔진 결과를 나란히 비교해요 — 유사도 검색이 실제로 얼마나 잘 통하는지 여기서 바로 확인할 수 있어요
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="filter-bar">
-        <span className="filter-eyebrow">필터</span>
-        <select
-          className="filter-select"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">전체 카테고리</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <span className="filter-divider" />
-        <select className="filter-select" value={priceSelectValue} onChange={applyPricePreset}>
-          {PRICE_PRESETS.map((p) => (
-            <option key={p.label} value={p.label}>
-              {p.label}
-            </option>
-          ))}
-          {!matchedPreset && <option value="직접 입력">직접 입력</option>}
-        </select>
-        <span className="filter-divider" />
-        <div className="filter-price-group">
-          <span className="filter-price-currency">₩</span>
-          <input
-            className="filter-price-input"
-            type="number"
-            inputMode="numeric"
-            placeholder="최소가"
-            value={minPriceInput}
-            onChange={(e) => setMinPriceInput(e.target.value)}
-            onBlur={commitPriceFilter}
-            onKeyDown={(e) => e.key === 'Enter' && commitPriceFilter()}
-          />
-          <span className="filter-price-sep">–</span>
-          <input
-            className="filter-price-input"
-            type="number"
-            inputMode="numeric"
-            placeholder="최대가"
-            value={maxPriceInput}
-            onChange={(e) => setMaxPriceInput(e.target.value)}
-            onBlur={commitPriceFilter}
-            onKeyDown={(e) => e.key === 'Enter' && commitPriceFilter()}
-          />
         </div>
-        {hasActiveFilter && (
-          <button className="filter-reset" onClick={resetFilters}>
-            ✕ 초기화
-          </button>
-        )}
+
+        <div className="console-divider" />
+
+        <div className="console-row filter-bar">
+          <span className="filter-eyebrow">필터</span>
+          <select
+            className="filter-select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">전체 카테고리</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <span className="filter-divider" />
+          <select className="filter-select" value={priceSelectValue} onChange={applyPricePreset}>
+            {PRICE_PRESETS.map((p) => (
+              <option key={p.label} value={p.label}>
+                {p.label}
+              </option>
+            ))}
+            {!matchedPreset && <option value="직접 입력">직접 입력</option>}
+          </select>
+          <span className="filter-divider" />
+          <div className="filter-price-group">
+            <span className="filter-price-currency">₩</span>
+            <input
+              className="filter-price-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="최소가"
+              value={minPriceInput}
+              onChange={(e) => setMinPriceInput(e.target.value)}
+              onBlur={commitPriceFilter}
+              onKeyDown={(e) => e.key === 'Enter' && commitPriceFilter()}
+            />
+            <span className="filter-price-sep">–</span>
+            <input
+              className="filter-price-input"
+              type="number"
+              inputMode="numeric"
+              placeholder="최대가"
+              value={maxPriceInput}
+              onChange={(e) => setMaxPriceInput(e.target.value)}
+              onBlur={commitPriceFilter}
+              onKeyDown={(e) => e.key === 'Enter' && commitPriceFilter()}
+            />
+          </div>
+          {hasActiveFilter && (
+            <button className="filter-reset" onClick={resetFilters}>
+              ✕ 초기화
+            </button>
+          )}
+        </div>
       </div>
 
       <main className="main">
@@ -450,7 +469,7 @@ export default function App() {
           <>
             {status === 'done' && results.length > 0 && (
               <div className="result-count">
-                {queryLabel} <b>{results.length}</b>건 · 배지 숫자는 최고 결과 대비 상대 유사도
+                {queryLabel} <b>{results.length}</b>건 · 막대 숫자는 최고 결과 대비 상대 유사도
               </div>
             )}
 
@@ -473,7 +492,7 @@ export default function App() {
             {status === 'done' && results.length > 0 && (
               <div className="grid">
                 {results.map((r) => (
-                  <ResultCard key={r.productId} item={r} maxScore={maxScore} />
+                  <ResultCard key={r.productId} item={r} maxScore={maxScore} accentColor={activeMode.color} />
                 ))}
               </div>
             )}

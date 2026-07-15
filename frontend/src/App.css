@@ -1,22 +1,36 @@
 /* ==========================================================================
-   Design tokens
-   - 베이스: 무신사st 미니멀 블랙/화이트 에디토리얼
-   - 액센트: 쿠팡st 코발트 블루 — "신뢰"와 "데이터"를 상징, 매치율 배지에만 사용
-   - 숫자(가격/유사도)는 모노스페이스로 - 이 프로젝트가 "검색 실험"이라는 걸
-     타이포로도 드러내기 위한 장치
+   Design tokens — "cosine." 검색엔진 비교 실험실
+   - 베이스: 쿨톤 그래프 페이퍼(따뜻한 크림톤 아님) + 그래파이트 잉크
+   - 액센트 2색은 장식이 아니라 데이터: 벡터=phosphor teal, 키워드=copper amber,
+     하이브리드=중립 잉크(둘을 섞은 결과라는 의미). 결과 카드/비교뷰의 색이 항상
+     "어떤 엔진이 만든 결과인지"를 인코딩한다.
+   - 타이포: IBM Plex Sans KR(본문/헤드라인) + IBM Plex Mono(수치/코드) — 같은
+     Plex 패밀리로 통일해서 "계측기" 톤을 타이포에서도 일관되게 유지한다.
    ========================================================================== */
 :root {
-  --ink: #12121a;
-  --paper: #f6f6f4;
+  --ink: #12151a;
+  --paper: #eef1ef;
   --surface: #ffffff;
-  --line: #e7e7e3;
-  --muted: #8b8b93;
-  --accent: #0b5fff;
-  --accent-soft: #e8f0ff;
+  --line: #dde3e0;
+  --muted: #767f7c;
+
+  --vector: #049c7f;
+  --vector-soft: #e3f5f1;
+  --keyword: #c2660a;
+  --keyword-soft: #fbeee1;
+  --hybrid: var(--ink);
+  --hybrid-soft: #e9eaec;
+
   --radius-sm: 6px;
   --radius-md: 12px;
-  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-lg: 16px;
+
+  --font-sans: "IBM Plex Sans KR", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --shadow-sm: 0 1px 2px rgba(18, 21, 26, 0.05);
+  --shadow-md: 0 8px 20px rgba(18, 21, 26, 0.08);
+  --shadow-lg: 0 16px 32px rgba(18, 21, 26, 0.12);
 }
 
 * {
@@ -35,12 +49,32 @@ body {
   min-height: 100vh;
 }
 
+/* ---------- Ticker: 페이지의 첫 문장 - 이게 "쇼핑몰"이 아니라 계측 도구라는 선언 ---------- */
+.ticker {
+  background: var(--ink);
+  overflow: hidden;
+}
+
+.ticker-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 6px 24px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- Sticky header ---------- */
 .header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(246, 246, 244, 0.9);
+  background: rgba(238, 241, 239, 0.88);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
   padding: 14px 24px;
@@ -55,14 +89,36 @@ body {
 }
 
 .logo {
-  font-weight: 800;
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 20px;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
 .logo-dot {
-  color: var(--accent);
+  color: var(--vector);
+}
+
+.logo-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .logo-kicker {
+    display: none;
+  }
 }
 
 .search-bar {
@@ -74,12 +130,13 @@ body {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px 6px 4px 18px;
+  box-shadow: var(--shadow-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .search-bar:focus-within {
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(18, 18, 26, 0.06);
+  box-shadow: 0 0 0 3px rgba(18, 21, 26, 0.07);
 }
 
 .search-input {
@@ -111,7 +168,7 @@ body {
 }
 
 .search-button:hover:not(:disabled) {
-  background: var(--accent);
+  background: var(--vector);
 }
 
 .search-button:active:not(:disabled) {
@@ -124,24 +181,39 @@ body {
   cursor: not-allowed;
 }
 
-/* ---------- Mode switch (검색 엔진 선택 — 세그먼트 컨트롤) ---------- */
-.mode-panel {
+/* ---------- Console: 검색엔진 선택 + 필터를 하나의 계기판으로 묶음 ---------- */
+.console {
   max-width: 1080px;
   margin: 20px auto 0;
-  padding: 0 24px;
+  padding: 18px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-.mode-panel-head {
+.console-row {
+  padding: 0 24px;
+  margin: 0 -24px;
+}
+
+.console-row-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 7px;
 }
 
+.console-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 16px -24px;
+}
+
 .mode-eyebrow {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -167,8 +239,8 @@ body {
   position: relative;
   display: flex;
   width: 100%;
-  max-width: 340px;
-  background: var(--line);
+  max-width: 360px;
+  background: var(--paper);
   border-radius: 999px;
   padding: 3px;
 }
@@ -186,6 +258,10 @@ body {
 
 .mode-seg {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1;
   border: none;
   background: transparent;
@@ -198,6 +274,13 @@ body {
   transition: color 0.2s;
 }
 
+.mode-seg-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .mode-seg.active {
   color: white;
 }
@@ -208,24 +291,18 @@ body {
   color: var(--muted);
 }
 
-/* ---------- Filter bar (검색바와 같은 언어의 툴바) ---------- */
+/* ---------- Filter bar ---------- */
 .filter-bar {
-  max-width: 1080px;
-  margin: 14px auto 0;
-  padding: 8px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
 }
 
 .filter-eyebrow {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -291,7 +368,7 @@ body {
 }
 
 .filter-reset:hover {
-  background: var(--line);
+  background: var(--paper);
   color: var(--ink);
 }
 
@@ -311,8 +388,10 @@ body {
 .compare-col {
   background: var(--surface);
   border: 1px solid var(--line);
+  border-top: 3px solid var(--col-color, var(--line));
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 .compare-col-head {
@@ -322,6 +401,13 @@ body {
   padding-bottom: 10px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--line);
+}
+
+.compare-col-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .compare-col-label {
@@ -358,12 +444,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 2px;
+  padding: 7px 8px;
+  margin: 0 -8px;
   border-bottom: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
 }
 
-.compare-item:last-child {
-  border-bottom: none;
+.compare-item-top {
+  background: color-mix(in srgb, var(--col-color, var(--line)) 10%, var(--surface));
+  border-bottom-color: transparent;
+}
+
+.compare-item-top .compare-rank {
+  color: var(--col-color, var(--ink));
+  font-weight: 700;
 }
 
 .compare-rank {
@@ -386,13 +480,13 @@ body {
 }
 
 .compare-item-link:hover .compare-item-name {
-  color: var(--accent);
+  color: var(--col-color, var(--ink));
 }
 
 .compare-item-category {
   font-size: 9.5px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -416,7 +510,6 @@ body {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 700;
-  color: var(--ink);
   flex-shrink: 0;
 }
 
@@ -484,12 +577,34 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  animation: card-in 0.35s ease backwards;
+}
+
+.grid .card:nth-child(1) { animation-delay: 0.02s; }
+.grid .card:nth-child(2) { animation-delay: 0.05s; }
+.grid .card:nth-child(3) { animation-delay: 0.08s; }
+.grid .card:nth-child(4) { animation-delay: 0.11s; }
+.grid .card:nth-child(5) { animation-delay: 0.14s; }
+.grid .card:nth-child(6) { animation-delay: 0.17s; }
+.grid .card:nth-child(7) { animation-delay: 0.2s; }
+.grid .card:nth-child(8) { animation-delay: 0.23s; }
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 24px rgba(18, 18, 26, 0.08);
+  box-shadow: var(--shadow-lg);
   border-color: transparent;
 }
 
@@ -525,33 +640,6 @@ body {
   background: linear-gradient(160deg, var(--paper), var(--line));
 }
 
-/* signature element: 원형 매치율 배지 */
-.match-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), rgba(255, 255, 255, 0.55) 0);
-  padding: 3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.match-badge-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--ink);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-}
-
 .card-link {
   display: block;
   color: inherit;
@@ -559,7 +647,40 @@ body {
 }
 
 .card-link:hover .card-name {
-  color: var(--accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+}
+
+/* signature element: 유사도 스펙트럼 바 - 엔진별 색으로 "이 결과가 어떤 근거로 나왔는지"를 표시 */
+.spectrum-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.spectrum-track {
+  flex: 1;
+  height: 4px;
+  background: var(--paper);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.spectrum-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.spectrum-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: right;
 }
 
 .card-body {
@@ -574,7 +695,7 @@ body {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--muted);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -607,8 +728,8 @@ body {
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  color: var(--vector);
+  border: 1px solid var(--vector);
   border-radius: 4px;
   padding: 1px 4px;
   margin-right: 2px;
@@ -635,7 +756,7 @@ body {
 }
 
 .price-compare-toggle:hover {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .price-compare-body {
@@ -672,7 +793,7 @@ body {
   font-size: 9px;
   font-weight: 700;
   color: white;
-  background: var(--accent);
+  background: var(--vector);
   border-radius: 4px;
   padding: 1px 4px;
 }
@@ -702,7 +823,7 @@ body {
 
 .skeleton-thumb {
   aspect-ratio: 1 / 1;
-  background: linear-gradient(100deg, var(--line) 30%, #f0f0ee 50%, var(--line) 70%);
+  background: linear-gradient(100deg, var(--line) 30%, #f4f6f5 50%, var(--line) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.3s infinite;
 }
@@ -711,7 +832,7 @@ body {
   height: 10px;
   margin: 12px 14px;
   border-radius: 4px;
-  background: linear-gradient(100deg, var(--line) 30%, #f0f0ee 50%, var(--line) 70%);
+  background: linear-gradient(100deg, var(--line) 30%, #f4f6f5 50%, var(--line) 70%);
   background-size: 200% 100%;
   animation: shimmer 1.3s infinite;
 }
@@ -734,7 +855,8 @@ body {
   .skeleton-line,
   .card,
   .card-thumb,
-  .mode-switch-indicator {
+  .mode-switch-indicator,
+  .spectrum-fill {
     animation: none;
     transition: none;
   }
