@@ -7,12 +7,15 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.vectorshop.search.dto.SearchResultDto;
 import com.vectorshop.search.exception.SearchUnavailableException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,12 +26,15 @@ public class SearchService {
 
     private final ElasticsearchClient esClient;
     private final WebClient embeddingWebClient;
+    private final JdbcTemplate jdbcTemplate;
 
     public SearchService(ElasticsearchClient esClient,
                           WebClient.Builder webClientBuilder,
-                          @Value("${embedding-service.base-url}") String embeddingBaseUrl) {
+                          @Value("${embedding-service.base-url}") String embeddingBaseUrl,
+                          JdbcTemplate jdbcTemplate) {
         this.esClient = esClient;
         this.embeddingWebClient = webClientBuilder.baseUrl(embeddingBaseUrl).build();
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public List<SearchResultDto> vectorSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
@@ -182,22 +188,54 @@ public class SearchService {
 
     @SuppressWarnings("unchecked")
     private List<SearchResultDto> toResults(SearchResponse<Map> response) {
-        List<SearchResultDto> results = new ArrayList<>();
+        List<Map<String, Object>> sources = new ArrayList<>();
+        List<Double> scores = new ArrayList<>();
         for (Hit<Map> hit : response.hits().hits()) {
             Map<String, Object> source = hit.source();
             if (source == null) {
                 continue;
             }
+            sources.add(source);
+            scores.add(hit.score() == null ? 0.0 : hit.score());
+        }
+
+        List<String> productIds = sources.stream().map(s -> String.valueOf(s.get("product_id"))).toList();
+        Map<String, String> sourceUrls = fetchSourceUrls(productIds);
+
+        List<SearchResultDto> results = new ArrayList<>();
+        for (int i = 0; i < sources.size(); i++) {
+            Map<String, Object> source = sources.get(i);
+            String productId = productIds.get(i);
             results.add(new SearchResultDto(
-                    String.valueOf(source.get("product_id")),
+                    productId,
                     (String) source.get("name"),
                     (String) source.get("category"),
                     source.get("price") == null ? null : ((Number) source.get("price")).intValue(),
                     (String) source.get("image_url"),
-                    hit.score() == null ? 0.0 : hit.score()
+                    scores.get(i),
+                    sourceUrls.get(productId)
             ));
         }
         return results;
+    }
+
+    /**
+     * ES 인덱스엔 source_url이 없어서(색인 당시 안 넣었음) Postgres에서 배치 조회한다.
+     * 카드 클릭 시 다나와 원본 상품 페이지로 이동할 수 있게 하기 위함.
+     */
+    private Map<String, String> fetchSourceUrls(List<String> productIds) {
+        if (productIds.isEmpty()) {
+            return Map.of();
+        }
+        Long[] ids = productIds.stream().map(Long::valueOf).toArray(Long[]::new);
+        String sql = "SELECT id, source_url FROM products WHERE id = ANY(?)";
+        Map<String, String> urlsById = new HashMap<>();
+        jdbcTemplate.query(
+                sql,
+                ps -> ps.setArray(1, ps.getConnection().createArrayOf("bigint", ids)),
+                (RowCallbackHandler) rs -> urlsById.put(String.valueOf(rs.getLong("id")), rs.getString("source_url"))
+        );
+        return urlsById;
     }
 
     private record EmbedRequest(List<String> texts) {

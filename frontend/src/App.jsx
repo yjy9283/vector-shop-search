@@ -94,35 +94,45 @@ function ResultCard({ item, maxScore }) {
   // 그 상태도 실제 로딩 실패(onError)와 동일하게 우리 fallback 박스로 대체한다.
   const isPlaceholderUrl = /noimg|nodata/i.test(item.imageUrl || '')
   const showImage = item.imageUrl && !imgFailed && !isPlaceholderUrl
+  // 다나와 원본 상품 페이지로 연결 - source_url이 없는 극소수 상품은 그냥 카드로 둔다
+  // (details/summary인 MallPriceList는 밖에 둬서 링크 안에 인터랙티브 요소가 중첩되지 않게 함).
+  const LinkWrap = item.sourceUrl ? 'a' : 'div'
+  const linkProps = item.sourceUrl
+    ? { href: item.sourceUrl, target: '_blank', rel: 'noopener noreferrer' }
+    : {}
 
   return (
     <div className="card">
-      <div className="card-thumb-wrap">
-        {showImage ? (
-          <img
-            className="card-thumb"
-            src={item.imageUrl}
-            alt={item.name}
-            onError={() => setImgFailed(true)}
-          />
-        ) : (
-          <div className="card-thumb-fallback">
-            <span>{categoryLeaf || '이미지 없음'}</span>
-          </div>
-        )}
-        {hasScore && (
-          <div className="match-badge" style={{ '--pct': pct }}>
-            <div className="match-badge-inner">{pct}%</div>
-          </div>
-        )}
-      </div>
-      <div className="card-body">
-        <div className="card-category">{item.category}</div>
-        <div className="card-name">{item.name}</div>
-        <div className="card-price">
-          <span className="lowest-label">최저</span> {item.price?.toLocaleString()}
-          <span className="won">원</span>
+      <LinkWrap className="card-link" {...linkProps}>
+        <div className="card-thumb-wrap">
+          {showImage ? (
+            <img
+              className="card-thumb"
+              src={item.imageUrl}
+              alt={item.name}
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <div className="card-thumb-fallback">
+              <span>{categoryLeaf || '이미지 없음'}</span>
+            </div>
+          )}
+          {hasScore && (
+            <div className="match-badge" style={{ '--pct': pct }}>
+              <div className="match-badge-inner">{pct}%</div>
+            </div>
+          )}
         </div>
+        <div className="card-body">
+          <div className="card-category">{item.category}</div>
+          <div className="card-name">{item.name}</div>
+          <div className="card-price">
+            <span className="lowest-label">최저</span> {item.price?.toLocaleString()}
+            <span className="won">원</span>
+          </div>
+        </div>
+      </LinkWrap>
+      <div className="card-footer">
         <MallPriceList productId={item.productId} />
       </div>
     </div>
@@ -146,11 +156,24 @@ function CompareColumn({ info, items, status, errorMsg }) {
           {items.map((item, i) => (
             <li className="compare-item" key={item.productId}>
               <span className="compare-rank">{i + 1}</span>
-              <div className="compare-item-body">
-                <div className="compare-item-category">{item.category?.split('>').pop()?.trim()}</div>
-                <div className="compare-item-name">{item.name}</div>
-                <div className="compare-item-price">{item.price?.toLocaleString()}원</div>
-              </div>
+              {item.sourceUrl ? (
+                <a
+                  className="compare-item-body compare-item-link"
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className="compare-item-category">{item.category?.split('>').pop()?.trim()}</div>
+                  <div className="compare-item-name">{item.name}</div>
+                  <div className="compare-item-price">{item.price?.toLocaleString()}원</div>
+                </a>
+              ) : (
+                <div className="compare-item-body">
+                  <div className="compare-item-category">{item.category?.split('>').pop()?.trim()}</div>
+                  <div className="compare-item-name">{item.name}</div>
+                  <div className="compare-item-price">{item.price?.toLocaleString()}원</div>
+                </div>
+              )}
               {hasScore && (
                 <span className="compare-item-score">{Math.round((item.score / maxScore) * 100)}%</span>
               )}
