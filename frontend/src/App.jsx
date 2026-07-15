@@ -133,7 +133,7 @@ export default function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="나이키 운동화, 여름 원피스처럼 검색해보세요"
+              placeholder="무선청소기, 노트북 추천처럼 검색해보세요"
             />
             <button className="search-button" onClick={handleSearch} disabled={status === 'loading'}>
               {status === 'loading' ? '검색 중' : '검색'}
