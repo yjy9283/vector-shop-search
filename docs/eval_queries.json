@@ -1,15 +1,28 @@
 [
-  {
-    "_comment": "아래는 형식 예시입니다. 실제 크롤링한 상품 ID로 채워서 20~30개까지 늘리세요.",
-    "query": "나이키 에어맥스 270",
-    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
-  },
-  {
-    "query": "나이키 운동화",
-    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
-  },
-  {
-    "query": "나이키 런닝화",
-    "answer_product_ids": ["REPLACE_WITH_REAL_ID"]
-  }
+  { "_type": "정확 매칭", "query": "MSI 벡터 A16 HX A8WHG-R9", "answer_product_ids": ["1"] },
+  { "_type": "정확 매칭", "query": "삼성전자 갤럭시S26 256GB 자급제", "answer_product_ids": ["161"] },
+  { "_type": "정확 매칭", "query": "APPLE 에어팟 프로3", "answer_product_ids": ["481"] },
+  { "_type": "정확 매칭", "query": "삼성전자 갤럭시워치8 40mm", "answer_product_ids": ["801"] },
+  { "_type": "정확 매칭", "query": "LG전자 디오스 AI 오브제컬렉션 S836MEE022", "answer_product_ids": ["3321"] },
+  { "_type": "정확 매칭", "query": "네스프레소 버츄오 업 MD1", "answer_product_ids": ["8121"] },
+  { "_type": "정확 매칭", "query": "로지텍 G PRO X SUPERLIGHT 2", "answer_product_ids": ["6921"] },
+  { "_type": "정확 매칭", "query": "카시오 F-91W-1", "answer_product_ids": ["17023"] },
+
+  { "_type": "동의어/유사어", "query": "노트북 추천", "answer_product_ids": ["1", "6", "14", "79", "113"], "answer_category": "디지털 완제품 > 노트북" },
+  { "_type": "동의어/유사어", "query": "무선청소기", "answer_product_ids": ["4121", "4315", "4489"], "answer_category": "생활가전 > 청소기" },
+  { "_type": "동의어/유사어", "query": "공기청정기", "answer_product_ids": ["5321", "5330"], "answer_category": "계절가전 > 가습기/공기청정기" },
+  { "_type": "동의어/유사어", "query": "게이밍 키보드", "answer_product_ids": ["6521", "6535"], "answer_category": "PC 주요 부품 > 키보드" },
+  { "_type": "동의어/유사어", "query": "게이밍 마우스", "answer_product_ids": ["6921", "6935"], "answer_category": "PC 주요 부품 > 마우스" },
+  { "_type": "동의어/유사어", "query": "커피머신", "answer_product_ids": ["8121", "8130"], "answer_category": "주방가전 > 커피메이커/머신" },
+  { "_type": "동의어/유사어", "query": "그래픽카드", "answer_product_ids": ["11321", "11330"], "answer_category": "PC 주요 부품 > 그래픽카드" },
+  { "_type": "동의어/유사어", "query": "거실 TV", "answer_product_ids": ["5721", "5730"], "answer_category": "영상음향 > 디지털TV" },
+
+  { "_type": "오타/문맥", "query": "노트뷱", "answer_product_ids": ["1", "6", "14", "79", "113"], "answer_category": "디지털 완제품 > 노트북" },
+  { "_type": "오타/문맥", "query": "에어팟프로", "answer_product_ids": ["481"], "answer_category": "태블릿/휴대폰 > 헤드폰/이어폰" },
+  { "_type": "오타/문맥", "query": "삼성 워치", "answer_product_ids": ["801", "864"], "answer_category": "태블릿/휴대폰 > 웨어러블기기" },
+  { "_type": "오타/문맥", "query": "밥솥", "answer_product_ids": ["8521", "8530"], "answer_category": "주방가전 > 전기밥솥" },
+  { "_type": "오타/문맥", "query": "전자렌지", "answer_product_ids": ["8921", "8930"], "answer_category": "주방가전 > 오븐/전자레인지" },
+  { "_type": "오타/문맥", "query": "제습기 추천", "answer_product_ids": ["10521", "10530"], "answer_category": "계절가전 > 제습기" },
+  { "_type": "오타/문맥", "query": "여름철 선풍기", "answer_product_ids": ["10121", "10130"], "answer_category": "계절가전 > 선풍기/냉풍기" },
+  { "_type": "오타/문맥", "query": "안마의자", "answer_product_ids": ["14521", "14530"], "answer_category": "건강/실버 > 안마/찜질용품" }
 ]

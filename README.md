@@ -73,7 +73,9 @@ vector-shop-search/
 
 ## 평가 방법
 
-`docs/evaluation.md` 참고 — Recall@K 기준으로 BM25 단독 / 벡터 단독 / 하이브리드 검색을 비교.
+`docs/evaluation.md` 참고 — Recall@K, Category Precision@K 기준으로 BM25 단독 / 벡터 단독 / 하이브리드 검색을 비교.
+
+**요약**: 전체 Recall@10만 보면 벡터(33%)가 BM25(37.5%)보다 낮지만, 이는 "카테고리 규모 대비 정답 ID가 너무 적은" 평가셋 설계 문제 때문이다. "결과가 정답 카테고리에 실제로 속하는가"를 재는 Category Precision@10으로 보면 벡터(89%)가 BM25(66%)를 크게 앞선다 — 즉 벡터는 동의어/문맥 이해에서 실제로 우수하고, 다만 거의 동일한 상품의 세부 스펙(SKU) 구분에는 약하다. 실무 권장 방식은 두 장점을 합친 **하이브리드**. 자세한 케이스 스터디는 `docs/evaluation.md` 참고.
 
 ## 원칙
 

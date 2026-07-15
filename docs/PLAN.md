@@ -212,9 +212,9 @@ CREATE TABLE product_mall_prices (
   - [ ] CORS 설정 추가 (`WebMvcConfigurer` 또는 `@CrossOrigin`)
 - [ ] **6단계**: `./gradlew bootRun` → `curl localhost:8080/api/search?q=나이키` 로 수동 확인
 - [ ] **7단계**: `npm install && npm run dev` (frontend) → 브라우저에서 벡터/하이브리드 토글 확인
-- [ ] **8단계**: 평가셋 20~30개 쿼리 작성 → 3개 API 각각 호출해서 Recall@5/@10 기록
-- [ ] **9단계**: `docs/evaluation.md` 결과 채우기 + 케이스 스터디 스크린샷
-- [ ] **10단계**: README, 발표자료 정리
+- [x] **8단계**: 평가셋 24개 쿼리 작성(`docs/eval_queries.json`) → 3개 API 각각 호출해서 Recall@5/@10 기록 (`docs/eval_runner.py`, 유형별 breakdown + category precision@k 보강)
+- [x] **9단계**: `docs/evaluation.md` 결과 채우기 + 케이스 스터디 3건 (근접 SKU 벡터 약점 / 카테고리 recall 지표 한계 / "노트북" 동의어 이해 벡터 강점)
+- [ ] **10단계**: README, 발표자료 정리 (README 평가 요약 반영 완료, 발표자료는 미착수)
 
 ---
 
