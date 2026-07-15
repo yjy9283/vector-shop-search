@@ -13,7 +13,7 @@ const ENDPOINTS = {
   bm25: '/api/search/bm25',
 }
 
-const TOP_K = 24
+const TOP_K = 60
 
 function SkeletonGrid({ count = 8 }) {
   return (
