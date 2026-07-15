@@ -13,7 +13,17 @@ const ENDPOINTS = {
   bm25: '/api/search/bm25',
 }
 
+const PRICE_PRESETS = [
+  { label: '전체 가격', min: '', max: '' },
+  { label: '10만원 이하', min: '', max: '100000' },
+  { label: '10~30만원', min: '100000', max: '300000' },
+  { label: '30~50만원', min: '300000', max: '500000' },
+  { label: '50~100만원', min: '500000', max: '1000000' },
+  { label: '100만원 이상', min: '1000000', max: '' },
+]
+
 const TOP_K = 100
+const COMPARE_TOP_K = 10
 
 function SkeletonGrid({ count = 8 }) {
   return (
@@ -75,7 +85,10 @@ function MallPriceList({ productId }) {
 
 function ResultCard({ item, maxScore }) {
   const [imgFailed, setImgFailed] = useState(false)
-  const pct = Math.round((item.score / maxScore) * 100)
+  // 필터만으로 둘러보는 모드(검색어 없음)는 순위를 매길 유사도 자체가 없어서 maxScore가 0 -
+  // 이때는 배지를 아예 숨긴다(0/0 = NaN을 그대로 보여주지 않기 위해).
+  const hasScore = maxScore > 0
+  const pct = hasScore ? Math.round((item.score / maxScore) * 100) : 0
   const categoryLeaf = item.category?.split('>').pop()?.trim()
   // 다나와 원본 데이터 자체가 "이미지 없음" 자리표시 gif(noImg/noData)를 주는 경우가 많아서,
   // 그 상태도 실제 로딩 실패(onError)와 동일하게 우리 fallback 박스로 대체한다.
@@ -97,9 +110,11 @@ function ResultCard({ item, maxScore }) {
             <span>{categoryLeaf || '이미지 없음'}</span>
           </div>
         )}
-        <div className="match-badge" style={{ '--pct': pct }}>
-          <div className="match-badge-inner">{pct}%</div>
-        </div>
+        {hasScore && (
+          <div className="match-badge" style={{ '--pct': pct }}>
+            <div className="match-badge-inner">{pct}%</div>
+          </div>
+        )}
       </div>
       <div className="card-body">
         <div className="card-category">{item.category}</div>
@@ -114,6 +129,39 @@ function ResultCard({ item, maxScore }) {
   )
 }
 
+function CompareColumn({ info, items, status, errorMsg }) {
+  const maxScore = items.length > 0 ? Math.max(...items.map((r) => r.score)) : 0
+  const hasScore = maxScore > 0
+  return (
+    <div className="compare-col">
+      <div className="compare-col-head">
+        <span className="compare-col-label">{info.label}</span>
+        <span className="compare-col-caption">{info.caption}</span>
+      </div>
+      {status === 'loading' && <div className="compare-empty">불러오는 중...</div>}
+      {status === 'error' && <div className="compare-empty compare-error">{errorMsg}</div>}
+      {status === 'done' && items.length === 0 && <div className="compare-empty">결과 없음</div>}
+      {status === 'done' && items.length > 0 && (
+        <ol className="compare-list">
+          {items.map((item, i) => (
+            <li className="compare-item" key={item.productId}>
+              <span className="compare-rank">{i + 1}</span>
+              <div className="compare-item-body">
+                <div className="compare-item-category">{item.category?.split('>').pop()?.trim()}</div>
+                <div className="compare-item-name">{item.name}</div>
+                <div className="compare-item-price">{item.price?.toLocaleString()}원</div>
+              </div>
+              {hasScore && (
+                <span className="compare-item-score">{Math.round((item.score / maxScore) * 100)}%</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -121,6 +169,11 @@ export default function App() {
   const [results, setResults] = useState([])
   const [status, setStatus] = useState('idle') // idle | loading | done | error
   const [errorMsg, setErrorMsg] = useState('')
+
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareResults, setCompareResults] = useState({ vector: [], hybrid: [], bm25: [] })
+  const [compareStatus, setCompareStatus] = useState('idle')
+  const [compareErrorMsg, setCompareErrorMsg] = useState('')
 
   const [categories, setCategories] = useState([])
   const [category, setCategory] = useState('')
@@ -136,22 +189,29 @@ export default function App() {
       .catch(() => setCategories([]))
   }, [])
 
-  // 검색어를 제출한 뒤에는, 검색 모드 탭이나 필터를 바꾸는 즉시 같은 검색어로 재검색한다.
+  // 검색어가 없어도 카테고리/가격 필터만 골랐으면 그 조건에 맞는 상품을 바로 둘러볼 수 있다.
+  const hasSearchable = Boolean(submittedQuery || category || minPrice || maxPrice)
+
+  const buildParams = (topK) => {
+    const params = new URLSearchParams({ q: submittedQuery, topK: String(topK) })
+    if (category) params.set('category', category)
+    if (minPrice) params.set('minPrice', minPrice)
+    if (maxPrice) params.set('maxPrice', maxPrice)
+    return params
+  }
+
+  // 검색어를 제출/필터를 바꾼 뒤에는, 검색 모드 탭을 바꾸는 즉시 같은 조건으로 재검색한다.
   // (모드 탭만 바꾸고 다시 "검색"을 눌러야 하는 건 혼란스러워서 자동 반영하도록 함)
   useEffect(() => {
-    if (!submittedQuery) return
+    if (compareMode) return
+    if (!hasSearchable) return
     let cancelled = false
 
     const run = async () => {
       setStatus('loading')
       setErrorMsg('')
       try {
-        const params = new URLSearchParams({ q: submittedQuery, topK: String(TOP_K) })
-        if (category) params.set('category', category)
-        if (minPrice) params.set('minPrice', minPrice)
-        if (maxPrice) params.set('maxPrice', maxPrice)
-
-        const res = await fetch(`${ENDPOINTS[mode]}?${params.toString()}`)
+        const res = await fetch(`${ENDPOINTS[mode]}?${buildParams(TOP_K).toString()}`)
         if (!res.ok) throw new Error(`검색 서버 응답 오류 (status: ${res.status})`)
         const data = await res.json()
         if (cancelled) return
@@ -170,16 +230,60 @@ export default function App() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submittedQuery, mode, category, minPrice, maxPrice])
+  }, [compareMode, submittedQuery, mode, category, minPrice, maxPrice])
+
+  // 비교 보기: 같은 조건으로 벡터/하이브리드/키워드 3종을 동시에 불러와 나란히 보여준다.
+  useEffect(() => {
+    if (!compareMode) return
+    if (!hasSearchable) return
+    let cancelled = false
+
+    const run = async () => {
+      setCompareStatus('loading')
+      setCompareErrorMsg('')
+      try {
+        const qs = buildParams(COMPARE_TOP_K).toString()
+        const entries = await Promise.all(
+          Object.entries(ENDPOINTS).map(async ([key, path]) => {
+            const res = await fetch(`${path}?${qs}`)
+            const data = res.ok ? await res.json() : []
+            return [key, data]
+          })
+        )
+        if (cancelled) return
+        setCompareResults(Object.fromEntries(entries))
+        setCompareStatus('done')
+      } catch (err) {
+        if (cancelled) return
+        console.error('비교 검색 실패:', err)
+        setCompareErrorMsg('비교 결과를 불러오지 못했어요.')
+        setCompareStatus('error')
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareMode, submittedQuery, category, minPrice, maxPrice])
 
   const handleSearch = () => {
-    if (!query.trim()) return
     setSubmittedQuery(query.trim())
   }
 
   const commitPriceFilter = () => {
     setMinPrice(minPriceInput)
     setMaxPrice(maxPriceInput)
+  }
+
+  const applyPricePreset = (e) => {
+    const preset = PRICE_PRESETS.find((p) => p.label === e.target.value)
+    if (!preset) return
+    setMinPriceInput(preset.min)
+    setMaxPriceInput(preset.max)
+    setMinPrice(preset.min)
+    setMaxPrice(preset.max)
   }
 
   const resetFilters = () => {
@@ -191,9 +295,14 @@ export default function App() {
   }
 
   const hasActiveFilter = category || minPrice || maxPrice
+  const matchedPreset = PRICE_PRESETS.find((p) => p.min === minPrice && p.max === maxPrice)
+  const priceSelectValue = matchedPreset ? matchedPreset.label : '직접 입력'
+
   const maxScore = results.length > 0 ? Math.max(...results.map((r) => r.score)) : 1
   const activeMode = MODES.find((m) => m.key === mode)
   const activeModeIndex = MODES.findIndex((m) => m.key === mode)
+  const queryLabel = submittedQuery ? `"${submittedQuery}" 검색 결과` : '필터 조건에 맞는 상품'
+  const emptyTitle = submittedQuery ? `"${submittedQuery}"에 대한 결과가 없어요` : '조건에 맞는 상품이 없어요'
 
   return (
     <div className="app-shell">
@@ -208,7 +317,7 @@ export default function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="무선청소기, 노트북 추천처럼 검색해보세요"
+              placeholder="무선청소기, 노트북 추천처럼 검색해보세요 (비워두고 필터만 골라도 돼요)"
             />
             <button className="search-button" onClick={handleSearch} disabled={status === 'loading'}>
               {status === 'loading' ? '검색 중' : '검색'}
@@ -218,23 +327,37 @@ export default function App() {
       </header>
 
       <div className="mode-panel">
-        <div className="mode-eyebrow">검색 엔진</div>
-        <div className="mode-switch">
-          <div
-            className="mode-switch-indicator"
-            style={{ transform: `translateX(${activeModeIndex * 100}%)` }}
-          />
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              className={`mode-seg ${mode === m.key ? 'active' : ''}`}
-              onClick={() => setMode(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
+        <div className="mode-panel-head">
+          <div className="mode-eyebrow">검색 엔진</div>
+          <button className="compare-toggle" onClick={() => setCompareMode((v) => !v)}>
+            {compareMode ? '개별 결과 보기' : '3종 비교 보기'}
+          </button>
         </div>
-        <div className="mode-caption">{activeMode.caption}</div>
+        {!compareMode && (
+          <>
+            <div className="mode-switch">
+              <div
+                className="mode-switch-indicator"
+                style={{ transform: `translateX(${activeModeIndex * 100}%)` }}
+              />
+              {MODES.map((m) => (
+                <button
+                  key={m.key}
+                  className={`mode-seg ${mode === m.key ? 'active' : ''}`}
+                  onClick={() => setMode(m.key)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="mode-caption">{activeMode.caption}</div>
+          </>
+        )}
+        {compareMode && (
+          <div className="mode-caption">
+            같은 조건으로 세 엔진 결과를 나란히 비교해요 — 유사도 검색이 실제로 얼마나 잘 통하는지 여기서 바로 확인할 수 있어요
+          </div>
+        )}
       </div>
 
       <div className="filter-bar">
@@ -250,6 +373,15 @@ export default function App() {
               {c}
             </option>
           ))}
+        </select>
+        <span className="filter-divider" />
+        <select className="filter-select" value={priceSelectValue} onChange={applyPricePreset}>
+          {PRICE_PRESETS.map((p) => (
+            <option key={p.label} value={p.label}>
+              {p.label}
+            </option>
+          ))}
+          {!matchedPreset && <option value="직접 입력">직접 입력</option>}
         </select>
         <span className="filter-divider" />
         <div className="filter-price-group">
@@ -284,41 +416,62 @@ export default function App() {
       </div>
 
       <main className="main">
-        {status === 'done' && results.length > 0 && (
-          <div className="result-count">
-            "{submittedQuery}" 검색 결과 <b>{results.length}</b>건 · 배지 숫자는 최고 결과 대비 상대 유사도
-          </div>
-        )}
-
-        {status === 'idle' && (
+        {!hasSearchable && (
           <div className="state-panel">
-            <div className="state-title">검색어를 입력해보세요</div>
-            <div className="state-desc">벡터 / 하이브리드 / 키워드 검색 엔진을 같은 검색어로 바로 비교할 수 있어요</div>
+            <div className="state-title">검색어를 입력하거나 필터를 골라보세요</div>
+            <div className="state-desc">벡터 / 하이브리드 / 키워드 검색 엔진을 같은 조건으로 바로 비교할 수 있어요</div>
           </div>
         )}
 
-        {status === 'loading' && <SkeletonGrid />}
+        {hasSearchable && !compareMode && (
+          <>
+            {status === 'done' && results.length > 0 && (
+              <div className="result-count">
+                {queryLabel} <b>{results.length}</b>건 · 배지 숫자는 최고 결과 대비 상대 유사도
+              </div>
+            )}
 
-        {status === 'error' && (
-          <div className="state-panel error">
-            <div className="state-title">검색을 완료하지 못했어요</div>
-            <div className="state-desc">{errorMsg}</div>
-          </div>
+            {status === 'loading' && <SkeletonGrid />}
+
+            {status === 'error' && (
+              <div className="state-panel error">
+                <div className="state-title">검색을 완료하지 못했어요</div>
+                <div className="state-desc">{errorMsg}</div>
+              </div>
+            )}
+
+            {status === 'done' && results.length === 0 && (
+              <div className="state-panel">
+                <div className="state-title">{emptyTitle}</div>
+                <div className="state-desc">다른 검색어, 다른 모드, 또는 필터 조건을 완화해서 시도해보세요</div>
+              </div>
+            )}
+
+            {status === 'done' && results.length > 0 && (
+              <div className="grid">
+                {results.map((r) => (
+                  <ResultCard key={r.productId} item={r} maxScore={maxScore} />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
-        {status === 'done' && results.length === 0 && (
-          <div className="state-panel">
-            <div className="state-title">"{submittedQuery}"에 대한 결과가 없어요</div>
-            <div className="state-desc">다른 검색어, 다른 모드, 또는 필터 조건을 완화해서 시도해보세요</div>
-          </div>
-        )}
-
-        {status === 'done' && results.length > 0 && (
-          <div className="grid">
-            {results.map((r) => (
-              <ResultCard key={r.productId} item={r} maxScore={maxScore} />
-            ))}
-          </div>
+        {hasSearchable && compareMode && (
+          <>
+            <div className="result-count">{queryLabel} · 엔진별 상위 {COMPARE_TOP_K}건 비교</div>
+            <div className="compare-grid">
+              {MODES.map((m) => (
+                <CompareColumn
+                  key={m.key}
+                  info={m}
+                  items={compareResults[m.key] || []}
+                  status={compareStatus}
+                  errorMsg={compareErrorMsg}
+                />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>

@@ -32,9 +32,12 @@ public class SearchService {
     }
 
     public List<SearchResultDto> vectorSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
-        validateQuery(queryText);
-        List<Float> vector = embedQuery(queryText);
         List<Query> filters = buildFilters(category, minPrice, maxPrice);
+        if (queryText == null || queryText.isBlank()) {
+            requireFilters(filters);
+            return browseSearch(topK, filters);
+        }
+        List<Float> vector = embedQuery(queryText);
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
@@ -53,9 +56,12 @@ public class SearchService {
     }
 
     public List<SearchResultDto> hybridSearch(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
-        validateQuery(queryText);
-        List<Float> vector = embedQuery(queryText);
         List<Query> filters = buildFilters(category, minPrice, maxPrice);
+        if (queryText == null || queryText.isBlank()) {
+            requireFilters(filters);
+            return browseSearch(topK, filters);
+        }
+        List<Float> vector = embedQuery(queryText);
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
@@ -85,8 +91,11 @@ public class SearchService {
      * (docs/PLAN.md 6장 평가 방법론 참고)
      */
     public List<SearchResultDto> bm25Search(String queryText, int topK, String category, Integer minPrice, Integer maxPrice) {
-        validateQuery(queryText);
         List<Query> filters = buildFilters(category, minPrice, maxPrice);
+        if (queryText == null || queryText.isBlank()) {
+            requireFilters(filters);
+            return browseSearch(topK, filters);
+        }
         try {
             SearchResponse<Map> response = esClient.search(s -> s
                             .index(INDEX)
@@ -129,9 +138,27 @@ public class SearchService {
         return filters;
     }
 
-    private void validateQuery(String queryText) {
-        if (queryText == null || queryText.isBlank()) {
-            throw new IllegalArgumentException("검색어를 입력해주세요.");
+    /**
+     * 검색어 없이 카테고리/가격 필터만으로 상품을 둘러보는 모드.
+     * 벡터/BM25/하이브리드를 가를 텍스트 쿼리가 없으므로 세 엔드포인트 모두
+     * 동일하게 match_all + filter 결과를 반환한다(순위를 매길 텍스트/벡터가 없어서 당연함).
+     */
+    private List<SearchResultDto> browseSearch(int topK, List<Query> filters) {
+        try {
+            SearchResponse<Map> response = esClient.search(s -> s
+                            .index(INDEX)
+                            .query(q -> q.bool(b -> b.filter(filters)))
+                            .size(topK),
+                    Map.class);
+            return toResults(response);
+        } catch (IOException e) {
+            throw new SearchUnavailableException("검색 서비스에 일시적인 문제가 있어요.", e);
+        }
+    }
+
+    private void requireFilters(List<Query> filters) {
+        if (filters.isEmpty()) {
+            throw new IllegalArgumentException("검색어를 입력하거나 필터를 선택해주세요.");
         }
     }
 

@@ -131,6 +131,13 @@ body {
   padding: 0 24px;
 }
 
+.mode-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
 .mode-eyebrow {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -138,7 +145,22 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 7px;
+}
+
+.compare-toggle {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.compare-toggle:hover {
+  border-color: var(--ink);
 }
 
 .mode-switch {
@@ -271,6 +293,121 @@ body {
 .filter-reset:hover {
   background: var(--line);
   color: var(--ink);
+}
+
+/* ---------- Compare view (3종 나란히 비교) ---------- */
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 860px) {
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.compare-col {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.compare-col-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-col-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.compare-col-caption {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.compare-empty {
+  font-size: 12.5px;
+  color: var(--muted);
+  padding: 16px 0;
+  text-align: center;
+}
+
+.compare-error {
+  color: #c22b2b;
+}
+
+.compare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compare-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.compare-item:last-child {
+  border-bottom: none;
+}
+
+.compare-rank {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.compare-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.compare-item-category {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compare-item-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-item-price {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.compare-item-score {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
 }
 
 /* ---------- Main content ---------- */

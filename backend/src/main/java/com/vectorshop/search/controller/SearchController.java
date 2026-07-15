@@ -23,7 +23,7 @@ public class SearchController {
      */
     @GetMapping("/api/search")
     public List<SearchResultDto> search(
-            @RequestParam String q,
+            @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "10") int topK,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer minPrice,
@@ -37,7 +37,7 @@ public class SearchController {
      */
     @GetMapping("/api/search/hybrid")
     public List<SearchResultDto> hybridSearch(
-            @RequestParam String q,
+            @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "10") int topK,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer minPrice,
@@ -51,7 +51,7 @@ public class SearchController {
      */
     @GetMapping("/api/search/bm25")
     public List<SearchResultDto> bm25Search(
-            @RequestParam String q,
+            @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "10") int topK,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer minPrice,
